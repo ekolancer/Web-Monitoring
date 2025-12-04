@@ -1,11 +1,12 @@
 aiohttp
-gspread
+certifi
+cryptography
 google-api-python-client
 google-auth
 google-auth-httplib2
 google-auth-oauthlib
-certifi
+gspread
 requests
 rich
-urllib3
 schedule
+urllib3
