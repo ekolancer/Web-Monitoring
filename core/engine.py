@@ -3,7 +3,7 @@
 import asyncio
 import aiohttp
 import functools
-from typing import List, Dict
+from typing import List, Dict, Callable
 
 from core.http_checker import HTTPChecker
 from core.ssl_checker import ssl_check_sync
@@ -18,23 +18,24 @@ class MonitorEngine:
         self.http = HTTPChecker(concurrency=concurrency)
 
     async def _ssl_check(self, hostname: str):
-        """
-        Jalankan ssl_check_sync di thread terpisah supaya non-blocking
-        """
-        return await asyncio.to_thread(functools.partial(ssl_check_sync, hostname))
+        """Run blocking SSL checker in threadpool."""
+        return await asyncio.to_thread(
+            functools.partial(ssl_check_sync, hostname)
+        )
 
     async def scan_one(self, session, raw_url: str) -> Dict:
         https, http = normalize_url(raw_url)
 
-        # --- Try HTTPS lalu HTTP ---
         res = None
         target = None
+
+        # Try HTTPS → fallback HTTP
         for target in (https, http):
             res = await self.http.fetch(session, target)
             if res["ok"]:
                 break
 
-        # Jika semua gagal -> UNREACHABLE
+        # Unreachable case
         if not res or not res.get("ok"):
             return {
                 "Timestamp": datetime_now(),
@@ -56,42 +57,25 @@ class MonitorEngine:
 
         final_url = res["final"]
         proto = "HTTPS" if final_url.startswith("https://") else "HTTP"
-        hostname = get_hostname(final_url) or get_hostname(target) # pyright: ignore[reportArgumentType]
+        hostname = get_hostname(final_url) or get_hostname(target)  # type: ignore # pyright ignore
 
-        # --- SSL check with detailed error ---
+        # Hit SSL checker
         if proto == "HTTPS" and hostname:
             ssl_status, ssl_days, tls, ssl_error = await self._ssl_check(hostname)
         elif proto == "HTTPS":
-            ssl_status, ssl_days, tls, ssl_error = (
-                "INVALID_CERT",
-                None,
-                None,
-                "NO_HOSTNAME",
-            )
+            ssl_status, ssl_days, tls, ssl_error = ("INVALID_CERT", None, None, "NO_HOSTNAME")
         else:
-            ssl_status, ssl_days, tls, ssl_error = (
-                "NO_HTTPS",
-                None,
-                None,
-                "NOT_USING_HTTPS",
-            )
+            ssl_status, ssl_days, tls, ssl_error = ("NO_HTTPS", None, None, "NOT_USING_HTTPS")
 
         text_lower = (res.get("text") or "").lower()
-        content_ok = any(
-            k in text_lower for k in ["bnpb", "login", "portal", "api", "dashboard"]
-        )
+        content_ok = any(k in text_lower for k in ["bnpb", "login", "portal", "api", "dashboard"])
 
-        # --- Determine status ---
         status = "UNKNOWN"
         http_code = res.get("status")
         latency = res.get("latency")
 
-        if (
-            http_code == 200
-            and latency is not None
-            and latency <= TIMEOUT_MS
-            and content_ok
-        ):
+        # Status logic
+        if http_code == 200 and latency and latency <= TIMEOUT_MS and content_ok:
             status = "HEALTHY"
         elif latency and latency > TIMEOUT_MS:
             status = "SLOW"
@@ -102,14 +86,11 @@ class MonitorEngine:
         elif http_code and http_code >= 400:
             status = "CLIENT ERROR"
 
-        # --- Alerts ---
         alerts = []
 
-        # SSL warning by days
         if ssl_days is not None and ssl_days <= SSL_WARNING_DAYS:
             alerts.append("SSL WARNING")
 
-        # SSL error type
         if ssl_status in ("INVALID_CERT", "HANDSHAKE_FAIL"):
             alerts.append("SSL ERROR")
 
@@ -137,10 +118,26 @@ class MonitorEngine:
             "Alerts": ", ".join(alerts) if alerts else "-",
         }
 
-    async def run(self):
+    # ================================
+    # RUN ENGINE WITH REALTIME OUTPUT
+    # ================================
+    async def run(self, progress_callback: Callable[[Dict], None] | None = None):
+        """
+        Menggunakan asyncio.as_completed untuk update progress realtime.
+        """
         async with aiohttp.ClientSession() as session:
-            tasks = [self.scan_one(session, url) for url in self.urls]
-            return await asyncio.gather(*tasks)
+            tasks = {asyncio.create_task(self.scan_one(session, url)): url for url in self.urls}
+
+            results = []
+
+            for coro in asyncio.as_completed(tasks):
+                res = await coro
+                results.append(res)
+
+                if progress_callback:
+                    progress_callback(res)
+
+            return results
 
 
 def datetime_now():

@@ -37,62 +37,67 @@ def load_urls_from_sheet():
         logger.error(f"Failed load URLs: {e}")
         return []
 
+
+#---------------- RUN ONCE SCAN ----------------
 def run_once():
     banner()
-    console.print("[bold green]SCAN ON PROGRES....[/]")
+    console.print("[bold green]SCAN ON PROGRESS....[/]")
+
     urls = load_urls_from_sheet()
     if not urls:
         console.print("[red]Tidak ada URL di 'List VM' kolom B.[/]")
         input("ENTER to return...")
         return
 
-    # progress UI
-    results = []
-    engine = MonitorEngine(urls) # pyright: ignore[reportArgumentType]
-    hacking_loading("Initializing WEB-MON engine", duration=3.0)
+    engine = MonitorEngine(urls) # type: ignore
+    total = len(urls)
+    hacking_loading("Panasin mesin dulu yah...", duration=5.0)
 
+    # PROGRESS REAL
     with Progress(
         SpinnerColumn(),
         TextColumn("[cyan]{task.description}"),
         BarColumn(),
-        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        TextColumn("{task.completed}/{task.total}"),
         TimeElapsedColumn(),
-        TimeRemainingColumn(),
-        console=console, expand=True
+        console=console,
+        expand=True
     ) as progress:
-        task = progress.add_task("Scanning websites...", total=len(urls))
+
+        task = progress.add_task("Scanning websites...", total=total)
+
+        def on_update(res):
+            progress.update(task, advance=1)
+
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
-            results = loop.run_until_complete(engine.run())
+            results = loop.run_until_complete(engine.run(progress_callback=on_update))
         finally:
             loop.close()
-        for _ in results:
-            progress.update(task, advance=1)
 
     console.print("\n[bold green]✔ Scan completed![/]\n")
 
-    # display table identical to previous UX
     console.print(make_table(results))
 
-    # save to sheets
     save_logs_gsheet(results)
     update_summary(results)
     apply_formatting()
-    
-    # write local
-    local_file = write_local_log(results)
-    console.print(f"\n[cyan]Local log saved to:[/] [bold]{local_file}[/]/n")
 
-    # telegram
+    local_file = write_local_log(results)
+    console.print(f"\n[cyan]Local log saved to:[/] [bold]{local_file}[/]")
+    console.print("\n[cyan]Logs & Summary updated (Sheets + local file).[/]")
+
     send_telegram_text(build_telegram_summary(results), silent=True)
-    console.print("\n[cyan]Sending notification to Telegram...[/]")
-    
-    console.print("\n[cyan]Logs & Summary updated (Sheets + local file).")
+    console.print("\n[cyan]Telegram Notifiaction Sent Successfully.[/]")
+
     input("\nENTER to return...")
 
-def hacking_loading(message="Initializing engine", duration=2.0):
-    frames = ["[=     ]", "[==    ]", "[===   ]", "[====  ]", "[===== ]", "[======]"]
+
+#---------------- Animasi Loading ----------------
+def hacking_loading(message="Initializing engine", duration=5.0):
+    frames = ["[=     ]", "[==         ]", "[===        ]", "[====       ]", "[=====      ]", "[======     ]", "[=======    ]", "[========   ]", "[=========  ]",
+              "[========== ]", "[===========]", "[ ==========]", "[  =========]", "[   ========]", "[    =======]", "[     ======]", "[      =====]", "[       ====]", "[        ===]", "[         ==]", "[          =]"]
     start = time.time()
     idx = 0
     while time.time() - start < duration:
@@ -102,6 +107,7 @@ def hacking_loading(message="Initializing engine", duration=2.0):
         idx += 1
     print("\r" + " " * (len(message) + 10), end="\r")
 
+#---------------- Telegram Summary Builder ----------------
 def build_telegram_summary(results):
     healthy = sum(1 for r in results if r.get("Status") == "HEALTHY")
     warning = sum(1 for r in results if r.get("Status") in ("SLOW", "PARTIAL"))
@@ -115,23 +121,25 @@ def build_telegram_summary(results):
     ]
     for e in errors[:40]:
         lines += [
-            f"🔗 {e.get('URL')}",
+            f"🌐 {e.get('URL')}",
+            f"📌 Status : {e.get('Status')}",
             f"⚡ Latency : {e.get('Latency')}",
             f"🔐 SSL : {e.get('SSL Status')}",
-            f"📌 Status : {e.get('Status')}",
             "━━━━━━━━━━━━━\n"
         ]
     lines.append(f"📝 Logs updated to Google Sheets (Logs & Summary)")
     lines.append(f"⏰ Created_at: {time.strftime('%Y-%m-%d %H:%M:%S')}")
-    lines.append("🔗 Powered by WEB-MON BNPB")
+    lines.append("Powered by Salam Tangguh, Tangguh, Tangguh !!! 💪💪💪")
     return "\n".join(lines)
 
+
+#---------------- RUN LIVE MONITORING ----------------
 def run_live():
     try:
         while True:
             banner()
-            console.print("[bold green]=========LIVE SCAN WEBSITE MONITORING (LOOP @60seconds)=========[/]")
-            console.print("[bold gray]SCAN ON PROGRESS.... (CTRL+C to stop)[/]")
+            console.print("[bold green]========= LIVE SCAN WEBSITE MONITORING =========[/]")
+            console.print("[bold gray]SCAN ON PROGRESS.... (CTRL+C to stop)[/]\n")
 
             urls = load_urls_from_sheet()
             if not urls:
@@ -139,27 +147,54 @@ def run_live():
                 time.sleep(5)
                 continue
 
-            hacking_loading("Initializing WEB-MON engine", duration=1.0)
+            hacking_loading("Initializing WEB-MON engine", duration=2.0)
 
-            engine = MonitorEngine(urls) # pyright: ignore[reportArgumentType]
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            results = loop.run_until_complete(engine.run())
-            loop.close()
+            engine = MonitorEngine(urls) # type: ignore
+            total = len(urls)
+
+            # ================================
+            # PROGRESS BAR REALTIME
+            # ================================
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[cyan]{task.description}"),
+                BarColumn(),
+                TextColumn("{task.completed}/{task.total}"),
+                TimeElapsedColumn(),
+                console=console,
+                expand=True
+            ) as progress:
+
+                task = progress.add_task("Live scanning...", total=total)
+
+                def on_update(res):
+                    progress.update(task, advance=1)
+
+                # jalankan engine dengan callback progress
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    results = loop.run_until_complete(engine.run(progress_callback=on_update))
+                finally:
+                    loop.close()
+
+            # after progress bar done
+            console.print("\n[bold green]✔ Live scan finished! Displaying results...[/]\n")
 
             console.print(make_table_live(results))
 
-            # Countdown refresh
+            # countdown UI
+            console.print("")
             for remaining in range(CHECK_INTERVAL, 0, -1):
                 sys.stdout.write(f"\r🔄 Refreshing in {remaining}s...")
                 sys.stdout.flush()
                 time.sleep(1)
-
-            print()  # pindah baris setelah countdown
+            print("\n")   # spacing
 
     except KeyboardInterrupt:
         console.print("\n\n[red]⛔ Live monitoring stopped by user.[/]")
         time.sleep(1)
+
 
 
 def auto_scheduler():
