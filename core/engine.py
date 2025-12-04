@@ -1,7 +1,10 @@
+# core/engine.py
+
 import asyncio
 import aiohttp
 import functools
 from typing import List, Dict
+
 from core.http_checker import HTTPChecker
 from core.ssl_checker import ssl_check_sync
 from utils.normalize import normalize_url, get_hostname
@@ -15,31 +18,34 @@ class MonitorEngine:
         self.http = HTTPChecker(concurrency=concurrency)
 
     async def _ssl_check(self, hostname: str):
-        # returns (status, days, tls_version, error_detail)
+        """
+        Jalankan ssl_check_sync di thread terpisah supaya non-blocking
+        """
         return await asyncio.to_thread(functools.partial(ssl_check_sync, hostname))
 
     async def scan_one(self, session, raw_url: str) -> Dict:
         https, http = normalize_url(raw_url)
 
-        # Try HTTPS then HTTP
+        # --- Try HTTPS lalu HTTP ---
         res = None
+        target = None
         for target in (https, http):
             res = await self.http.fetch(session, target)
             if res["ok"]:
                 break
 
-        # Failure -> unreachable
-        if not res or not res["ok"]:
+        # Jika semua gagal -> UNREACHABLE
+        if not res or not res.get("ok"):
             return {
                 "Timestamp": datetime_now(),
                 "URL": raw_url,
                 "Status": "UNREACHABLE",
                 "HTTP": None,
                 "Latency": None,
-                "SSL Status": "NO HTTPS",
+                "SSL Status": "NO_HTTPS",
                 "SSL Days": None,
                 "TLS Version": None,
-                "SSL Error": "NO_HTTPS_OR_CONNECT_FAIL",
+                "SSL Error": "NO_RESPONSE",
                 "Protocol": "-",
                 "Server": "-",
                 "Cache": "-",
@@ -48,27 +54,44 @@ class MonitorEngine:
                 "Alerts": "UNREACHABLE",
             }
 
-        final = res["final"]
-        proto = "HTTPS" if final.startswith("https://") else "HTTP"
-        hostname = get_hostname(final) or get_hostname(target)
+        final_url = res["final"]
+        proto = "HTTPS" if final_url.startswith("https://") else "HTTP"
+        hostname = get_hostname(final_url) or get_hostname(target)
 
-        # SSL check with detailed error
-        if proto == "HTTPS":
+        # --- SSL check with detailed error ---
+        if proto == "HTTPS" and hostname:
             ssl_status, ssl_days, tls, ssl_error = await self._ssl_check(hostname)
+        elif proto == "HTTPS":
+            ssl_status, ssl_days, tls, ssl_error = (
+                "INVALID_CERT",
+                None,
+                None,
+                "NO_HOSTNAME",
+            )
         else:
-            ssl_status, ssl_days, tls, ssl_error = "NO HTTPS", None, None, "NOT_USING_HTTPS"
+            ssl_status, ssl_days, tls, ssl_error = (
+                "NO_HTTPS",
+                None,
+                None,
+                "NOT_USING_HTTPS",
+            )
 
-        # Content check
         text_lower = (res.get("text") or "").lower()
         content_ok = any(
             k in text_lower for k in ["bnpb", "login", "portal", "api", "dashboard"]
         )
 
-        # Determine status
+        # --- Determine status ---
+        status = "UNKNOWN"
         http_code = res.get("status")
         latency = res.get("latency")
 
-        if http_code == 200 and latency is not None and latency <= TIMEOUT_MS and content_ok:
+        if (
+            http_code == 200
+            and latency is not None
+            and latency <= TIMEOUT_MS
+            and content_ok
+        ):
             status = "HEALTHY"
         elif latency and latency > TIMEOUT_MS:
             status = "SLOW"
@@ -78,16 +101,21 @@ class MonitorEngine:
             status = "SERVER ERROR"
         elif http_code and http_code >= 400:
             status = "CLIENT ERROR"
-        else:
-            status = "UNKNOWN"
 
-        # Alerts
+        # --- Alerts ---
         alerts = []
 
+        # SSL warning by days
         if ssl_days is not None and ssl_days <= SSL_WARNING_DAYS:
             alerts.append("SSL WARNING")
+
+        # SSL error type
+        if ssl_status in ("INVALID_CERT", "HANDSHAKE_FAIL"):
+            alerts.append("SSL ERROR")
+
         if status in ("UNREACHABLE", "SERVER ERROR", "CLIENT ERROR"):
             alerts.append("STATUS ISSUE")
+
         if latency and latency > TIMEOUT_MS:
             alerts.append("SLOW RESPONSE")
 
@@ -100,7 +128,7 @@ class MonitorEngine:
             "SSL Status": ssl_status,
             "SSL Days": ssl_days,
             "TLS Version": tls,
-            "SSL Error": ssl_error,  # NEW
+            "SSL Error": ssl_error,
             "Protocol": proto,
             "Server": res["headers"].get("Server", "-"),
             "Cache": res["headers"].get("Cache-Control", "-"),

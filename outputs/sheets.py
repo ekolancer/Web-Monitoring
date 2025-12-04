@@ -73,15 +73,14 @@ def update_summary_gsheet(results: list):
     ws_logs = sheet_get_or_create(spreadsheet, "Logs", LOG_HEADERS)
     ws_sum = sheet_get_or_create(spreadsheet, "Summary", SUMMARY_HEADERS)
 
-    # Baca seluruh histori logs
+    # Ambil semua histori logs
     logs = ws_logs.get_all_records(expected_headers=LOG_HEADERS)
 
-    # Kelompokkan berdasar URL
     grouped = {}
     for row in logs:
         grouped.setdefault(row["URL"], []).append(row)
 
-    # Bersihkan data lama summary
+    # Hapus baris lama
     ws_sum.batch_clear(["A2:Z9999"])
 
     final_rows = []
@@ -89,27 +88,27 @@ def update_summary_gsheet(results: list):
     window_cutoff = now - timedelta(days=SLA_WINDOW_DAYS)
 
     for url, entries in grouped.items():
-        # Sort waktu ascending
-        entries.sort(key=lambda x: x["Timestamp"])
-        last = entries[-1]
 
-        # ---------------------------
-        # 1) Average Latency (last 50)
-        # ---------------------------
+        # Sort berdasarkan timestamp
+        entries.sort(key=lambda x: x["Timestamp"])
+        last = entries[-1]  # last scan
+
+        # ---------------------------------------
+        # 1) AVG LATENCY (last 50 entries)
+        # ---------------------------------------
         latencies = [
-            e["Latency"]
-            for e in entries
+            e["Latency"] for e in entries
             if isinstance(e["Latency"], (int, float))
         ]
+
         avg_latency = (
             round(sum(latencies[-50:]) / len(latencies[-50:]), 2)
             if latencies else "-"
         )
 
-        # ---------------------------
-        # 2) SLA berdasarkan HTTP 200
-        # ---------------------------
-
+        # ---------------------------------------
+        # 2) SLA: HTTP == 200 dalam 7 hari terakhir
+        # ---------------------------------------
         def to_dt(ts):
             try:
                 return datetime.strptime(ts, "%Y-%m-%d %H:%M:%S")
@@ -119,25 +118,25 @@ def update_summary_gsheet(results: list):
         last7 = [e for e in entries if to_dt(e["Timestamp"]) >= window_cutoff]
 
         if last7:
-            http_up = sum(1 for e in last7 if str(e.get("HTTP")) == "200")
+            http_ok = sum(1 for e in last7 if str(e.get("HTTP")) == "200")
             total = len(last7)
-            sla_val = round((http_up / total) * 100, 2)
+            sla_val = round((http_ok / total) * 100, 2)
             sla_str = f"{sla_val}%"
         else:
             sla_str = "-"
 
-        # ---------------------------
-        # 3) SSL Expiry Days (min)
-        # ---------------------------
-        ssl_days = [
-            e["SSL Days"] for e in entries
-            if isinstance(e["SSL Days"], int)
-        ]
-        ssl_min = min(ssl_days) if ssl_days else "-"
+        # ---------------------------------------
+        # 3) SSL EXPIRY DAYS (ambil data TERAKHIR)
+        # ---------------------------------------
+        ssl_days_final = (
+            last["SSL Days"]
+            if isinstance(last.get("SSL Days"), int)
+            else "-"
+        )
 
-        # ---------------------------
-        # 4) Compose row
-        # ---------------------------
+        # ---------------------------------------
+        # 4) Row ke Summary (disesuaikan HEADER)
+        # ---------------------------------------
         final_rows.append([
             url,
             last["Timestamp"],
@@ -146,19 +145,19 @@ def update_summary_gsheet(results: list):
             last["Latency"],
             last["Server"],
             avg_latency,
-            sla_str,                 # <- SLA HTTP 200 FIXED
+            sla_str,
             last["SSL Status"],
-            ssl_min == last["SSL Days"],
+            ssl_days_final,       # FIX → tidak lagi True/False
             last["TLS Version"],
-            last["SSL Error"],
             last["Protocol"],
             last["Alerts"],
+            last.get("SSL Error", "-"),
         ])
 
     if final_rows:
         ws_sum.append_rows(final_rows)
 
-    # Auto-resize columns
+    # Auto-resize kolom
     sheets_api.spreadsheets().batchUpdate(
         spreadsheetId=spreadsheet.id,
         body={
@@ -172,7 +171,6 @@ def update_summary_gsheet(results: list):
             }]
         }
     )
-
 
 
 def apply_formatting():
