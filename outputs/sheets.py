@@ -150,8 +150,8 @@ def update_summary_gsheet(results: list):
             ssl_days_final,       # FIX → tidak lagi True/False
             last["TLS Version"],
             last["Protocol"],
-            last["Alerts"],
             last.get("SSL Error", "-"),
+            last["Alerts"],
         ])
 
     if final_rows:

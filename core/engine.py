@@ -56,7 +56,7 @@ class MonitorEngine:
 
         final_url = res["final"]
         proto = "HTTPS" if final_url.startswith("https://") else "HTTP"
-        hostname = get_hostname(final_url) or get_hostname(target)
+        hostname = get_hostname(final_url) or get_hostname(target) # pyright: ignore[reportArgumentType]
 
         # --- SSL check with detailed error ---
         if proto == "HTTPS" and hostname:
