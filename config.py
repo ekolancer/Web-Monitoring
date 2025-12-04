@@ -54,6 +54,6 @@ SUMMARY_HEADERS = [
     "SSL Expiry Days",
     "TLS",
     "Protocol",
-    "Alerts",
     "SSL Error",      # << NEW (optional, tapi kamu minta ada di summary)
+    "Alerts",
 ]

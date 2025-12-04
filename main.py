@@ -5,7 +5,7 @@ import sys
 import os
 from rich.console import Console
 from ui.banner import banner
-from ui.table_view import make_table
+from ui.table_view import make_table, make_table_live
 from outputs.local_log import write_local_log
 from outputs.sheets import save_logs_gsheet
 from outputs.sheets import apply_formatting
@@ -48,7 +48,7 @@ def run_once():
 
     # progress UI
     results = []
-    engine = MonitorEngine(urls)
+    engine = MonitorEngine(urls) # pyright: ignore[reportArgumentType]
     hacking_loading("Initializing WEB-MON engine", duration=3.0)
 
     with Progress(
@@ -141,13 +141,13 @@ def run_live():
 
             hacking_loading("Initializing WEB-MON engine", duration=1.0)
 
-            engine = MonitorEngine(urls)
+            engine = MonitorEngine(urls) # pyright: ignore[reportArgumentType]
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             results = loop.run_until_complete(engine.run())
             loop.close()
 
-            console.print(make_table(results))
+            console.print(make_table_live(results))
 
             # Countdown refresh
             for remaining in range(CHECK_INTERVAL, 0, -1):

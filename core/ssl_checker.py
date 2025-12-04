@@ -41,7 +41,7 @@ def ssl_check_sync(hostname: str):
 
         # --- PARSE X509 CERT ---
         try:
-            x509_cert = x509.load_der_x509_certificate(raw_cert, default_backend())
+            x509_cert = x509.load_der_x509_certificate(raw_cert, default_backend()) # pyright: ignore[reportArgumentType]
         except Exception as e:
             return ("INVALID_CERT", None, tls_version, f"PARSE_FAIL: {type(e).__name__}")
 
