@@ -19,14 +19,26 @@ GOOGLE_CREDENTIALS_FILE = "credentials.json"
 
 # Local paths
 LOG_DIR = "logs"
-OUTPUT_DIR = "output"
+OUTPUT_DIR = "results"
 
 
 # ---------------- HEADERS ----------------
 LOG_HEADERS = [
-    "Timestamp", "URL", "Status", "HTTP", "Latency",
-    "SSL Status", "SSL Days", "TLS Version", "SSL Error",
-    "Protocol", "Server", "Cache", "CDN", "Content", "Alerts"
+    "Timestamp",
+    "URL",
+    "Status",
+    "HTTP",
+    "Latency",
+    "SSL Status",
+    "SSL Days",
+    "TLS Version",
+    "SSL Error",      # << NEW
+    "Protocol",
+    "Server",
+    "Cache",
+    "CDN",
+    "Content",
+    "Alerts",
 ]
 
 SUMMARY_HEADERS = [
@@ -41,7 +53,7 @@ SUMMARY_HEADERS = [
     "SSL Status",
     "SSL Expiry Days",
     "TLS",
-    "SSL Error",
     "Protocol",
     "Alerts",
+    "SSL Error",      # << NEW (optional, tapi kamu minta ada di summary)
 ]
