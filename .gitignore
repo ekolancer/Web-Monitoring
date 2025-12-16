@@ -1,0 +1,7 @@
+# Ignore entire env folder
+env/
+
+# Ignore secrets
+credentials.json
+.env
+*.key
