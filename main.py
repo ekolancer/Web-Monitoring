@@ -19,6 +19,9 @@ import gspread
 from googleapiclient.discovery import build
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
+from outputs.sheets import init_sheets
+
+spreadsheet, sheets_api = init_sheets()
 
 console = Console()
 logger = setup_logger()

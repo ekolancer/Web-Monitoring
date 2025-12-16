@@ -1,8 +1,11 @@
 # outputs/sheets.py
+from pathlib import Path
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 import gspread
 from datetime import datetime, timedelta
+
+
 from config import (
     GOOGLE_CREDENTIALS_FILE,
     SPREADSHEET_NAME,
@@ -12,7 +15,7 @@ from config import (
 )
 
 # ----------------------------------------
-# INIT GOOGLE SHEETS CLIENT (MODULAR)
+# INIT GOOGLE SHEETS CLIENT (MODULAR & SAFE)
 # ----------------------------------------
 
 SCOPES = [
@@ -20,15 +23,31 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive",
 ]
 
+
 def init_sheets():
-    creds = Credentials.from_service_account_file(GOOGLE_CREDENTIALS_FILE, scopes=SCOPES)
-    g = gspread.authorize(creds)
-    sheet = g.open(SPREADSHEET_NAME)
-    api = build("sheets", "v4", credentials=creds)
-    return sheet, api
+    cred_path = Path(GOOGLE_CREDENTIALS_FILE)
 
+    if not cred_path.is_absolute():
+        # pastikan path selalu dari root project
+        BASE_DIR = Path(__file__).resolve().parents[1]
+        cred_path = BASE_DIR / cred_path
+
+    if not cred_path.exists():
+        raise FileNotFoundError(
+            f"Google credentials file not found: {cred_path}"
+        )
+
+    creds = Credentials.from_service_account_file(
+        cred_path,
+        scopes=SCOPES
+    )
+
+    gclient = gspread.authorize(creds)
+    spreadsheet = gclient.open(SPREADSHEET_NAME)
+    sheets_api = build("sheets", "v4", credentials=creds)
+
+    return spreadsheet, sheets_api
 spreadsheet, sheets_api = init_sheets()
-
 
 # ----------------------------------------
 # SHEET UTILITIES

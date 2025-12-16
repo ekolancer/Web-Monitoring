@@ -1,3 +1,6 @@
+# Google credential file
+GOOGLE_CREDENTIALS_FILE = "env/credentials.json"
+
 # Konfigurasi global — update sesuai kebutuhan Anda
 SPREADSHEET_NAME = "Website Monitoring"
 LIST_TAB_NAME = "List VM"
@@ -13,9 +16,6 @@ THREAD_WORKERS = 10
 # Telegram
 BOT_TOKEN = "8497837842:AAE_NIDqV6ZoQQEQoghQpxYqjF0GQpqJAN0"   # isi jika mau
 CHAT_ID = "6618166674"     # isi jika mau
-
-# Google credential file
-GOOGLE_CREDENTIALS_FILE = "env/credentials.json"
 
 # Local paths
 LOG_DIR = "logs"
