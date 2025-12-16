@@ -1,111 +1,42 @@
-# 🛰️ **WEB-MON BNPB — Web Monitoring Tool**
 
-WEB-MON BNPB adalah aplikasi monitoring website yang dikembangkan untuk mendukung kebutuhan operasional **Badan Nasional Penanggulangan Bencana (BNPB)** dalam memantau ketersediaan layanan, kesehatan sistem, kinerja web, dan keamanan SSL seluruh aplikasi dan subdomain BNPB.
+# 🛰️ WEB-MON — Web Monitoring Toolkit (BNPB Edition)
 
-Aplikasi ini bersifat modular, mudah dikembangkan, serta terintegrasi dengan Google Sheets dan Telegram untuk pelaporan otomatis.
+[![Status](https://img.shields.io/badge/Status-Active-brightgreen)]()
+[![Python](https://img.shields.io/badge/Python-3.9%2B-blue)]()
+[![License](https://img.shields.io/badge/License-MIT-orange)]()
+[![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Windows-lightgrey)]()
 
----
-
-## ✨ **Fitur Utama**
-
-### 🟢 **1. Monitoring Website**
-- Mengecek status HTTP (200, 500, 404, dll.)
-- Memeriksa kecepatan respon (latency)
-- Melakukan validasi konten (content inspection)
-
-### 🔐 **2. Monitoring SSL**
-- Menampilkan status validitas SSL
-- Menghitung sisa masa berlaku (days-to-expire)
-- Menganalisis versi TLS
-- Mendeteksi error SSL (HANDSHAKE_FAIL, INVALID_CERT, dsb.)
-
-### 📡 **3. Notifikasi Telegram**
-- Mengirim ringkasan hasil scan
-- Mengirim alert jika ditemukan error, status buruk, atau perubahan penting
-- Dapat diaktifkan/diuji melalui menu
-
-### 📑 **4. Integrasi Google Sheets**
-- Semua hasil scan disimpan pada tab **Logs**
-- Ringkasan otomatis dihasilkan pada tab **Summary**
-- Dilengkapi format otomatis & emoji indikator status
-
-### 🧠 **5. Mode Live Monitoring**
-- Menjalankan scan terus-menerus dengan interval tertentu
-- Dilengkapi tabel real-time dan penghitung waktu refresh
-
-### 🗂️ **6. Modular Architecture**
-- Struktur kode rapi dan mudah dijaga
-- Setiap fungsi berada di modul terpisah (**core**, **outputs**, **ui**, **utils**)
-
-### 📆 **7. Automatic Scheduler**
-- Scan otomatis pada waktu terjadwal (contoh: 08:00 & 21:03)
-- Cocok untuk monitoring harian
-
-### 💾 **8. Local Logging**
-- Semua hasil tersimpan juga dalam file `.json` di folder `results/`
-
----
-
-## 📦 **Instalasi**
-
-### 1. Install Dependencies
-```bash
-pip install -r requirements.txt
 ```
-
-### 2. Tambahkan Kredensial Google
-- Letakkan `credentials.json` di root folder project
-- Pastikan service account memiliki akses ke Google Sheets terkait
-
-### 3. Konfigurasi
-Edit file `config.py` untuk mengatur:
-- Token & chat ID Telegram
-- Nama Google Sheets & nama tab
-- Timeout scanning & concurrency
-- Jadwal monitoring otomatis
-
----
-
-## ▶️ **Cara Menjalankan Aplikasi**
-```bash
-python main.py
+██╗    ██╗███████╗██████╗ ███╗   ███╗ ██████╗ ███╗   ██╗
+██║    ██║██╔════╝██╔══██╗████╗ ████║██╔═══██╗████╗  ██║
+██║ █╗ ██║█████╗  ██████╔╝██╔████╔██║██║   ██║██╔██╗ ██║
+██║███╗██║██╔══╝  ██╔══██╗██║╚██╔╝██║██║   ██║██║╚██╗██║
+╚███╔███╔╝███████╗██║  ██║██║ ╚═╝ ██║╚██████╔╝██║ ╚████║
+ ╚══╝╚══╝ ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝ ╚═════╝ ╚═╝  ╚═══╝
 ```
 
 ---
 
-## 📋 **Menu Aplikasi**
+## 📌 **Apa itu WEB-MON?**
 
-| Menu | Fungsi |
-|------|--------|
-| **1. Run Scan Once & Export Logs** | Menjalankan scan satu kali & ekspor log |
-| **2. Live Monitoring (Loop)** | Scan terus-menerus dengan interval |
-| **3. Telegram Notification Test** | Menguji koneksi & notifikasi Telegram |
-| **4. Run Diagnostics** | Mengecek Google Sheets + Telegram |
-| **5. Run Automatic Scheduler (Daily)** | Menjalankan scan otomatis harian |
-| **0. Exit** | Keluar aplikasi |
-
----
-
-## ⚙️ **Konfigurasi Penting**
-
-- `SPREADSHEET_NAME` → Nama Google Sheets
-- `LIST_TAB_NAME` → Tab berisi daftar URL
-- `CHECK_INTERVAL` → Interval Live Monitoring
-- `TIMEOUT_MS` → Batas waktu request
-- `SSL_WARNING_DAYS` → Batas peringatan SSL
-- `CONCURRENCY` → Jumlah worker scanning
-- `BOT_TOKEN` & `CHAT_ID` → Telegram bot config
+**WEB-MON** adalah toolkit monitoring website yang modular dan ringan, mendukung:
+- Monitoring uptime
+- HTTP response time check
+- SSL certificate checking (validity & expiry)
+- Notifikasi Telegram otomatis
+- Integrasi dengan Google Spreadsheet
+- Monitoring loop otomatis
+- Arsitektur modular untuk pengembangan lanjutan
 
 ---
 
-## 📂 **Struktur Project**
+# 📁 **Struktur Proyek**
 
 ```
 webmon/
 ├── config.py
 ├── credentials.json
 ├── main.py
-├── README.md
 ├── requirements.txt
 │
 ├── core/
@@ -127,35 +58,133 @@ webmon/
 │   └── normalize.py
 │
 ├── results/
-│   └── *.json
-│
 └── logs/
-    └── webmon.log
 ```
 
 ---
 
-## 📤 **Output Monitoring**
+# 🧩 **Arsitektur Sistem (Diagram ASCII)**
 
-### 🧾 Google Sheets
-- **Logs**: data mentah tiap scan
-- **Summary**: status terbaru per website + SLA + latency rata-rata + SSL info
-
-### 📨 Telegram
-- Ringkasan hasil scan
-- Alert jika error, SSL bermasalah, atau status tidak sehat
-
-### 💾 Local JSON
-- Backup log untuk kebutuhan audit
+```
+          +----------------------+
+          |      main.py        |
+          |  (User Interface)   |
+          +----------+----------+
+                     |
+                     v
+          +----------------------+
+          |      engine.py       |
+          |  Orchestrator Logic  |
+          +----------+-----------+
+                     |
+     +---------------+-------------------+
+     |                                   |
+     v                                   v
++------------+                   +----------------+
+| http_checker|                   |  ssl_checker  |
++------------+                   +----------------+
+     |                                   |
+     +---------------+-------------------+
+                     |
+                     v
+          +------------------------+
+          |     outputs/          |
+          | Sheets / Telegram /   |
+          | Local JSON Log        |
+          +-----------+-----------+
+                      |
+                      v
+          +------------------------+
+          | results/ & logs/      |
+          +------------------------+
+```
 
 ---
 
-## 🛡️ **Keamanan & Privasi**
+# 🚀 **Cara Menjalankan**
 
-- Berjalan lokal, tidak mengirimkan data selain ke Google Sheets internal
-- Telegram hanya untuk notifikasi internal BNPB
-- Tidak menyimpan data sensitif website
+### 1. Install dependencies  
+```
+pip install -r requirements.txt
+```
+
+### 2. Siapkan credentials Google Sheets  
+Letakkan file:
+```
+webmon/credentials.json
+```
+
+### 3. Jalankan aplikasi  
+```
+python main.py
+```
 
 ---
 
-> _Salam Tangguh, Tangguh, Tangguh!_ 💪💪💪
+# 🧭 **Menu Aplikasi**
+
+```
+[1] Scan Website
+[2] Monitoring Loop
+[3] Lihat Log
+[0] Keluar
+```
+
+---
+
+# 🌐 **Konfigurasi Target Website**
+
+Atur di `config.py`:
+
+```python
+TARGETS = [
+    {"name": "Website BNPB", "url": "https://bnpb.go.id"},
+    {"name": "Sistem Informasi", "url": "https://example.com"},
+]
+```
+
+---
+
+# 📊 **Integrasi Spreadsheet**
+
+Hasil scan dicatat ke Google Sheet dalam format:
+
+| Timestamp | URL | Status | Response Time | SSL Expiry | Notes |
+|-----------|------|--------|----------------|-------------|--------|
+
+---
+
+# 📬 **Notifikasi Telegram**
+
+Alert dikirim otomatis ketika:
+- Website error / down  
+- Slow response  
+- SSL mendekati expiry  
+
+---
+
+# 🧱 **Modularitas untuk Pengembangan Lanjutan**
+
+WEB-MON dapat diperluas dengan mudah:
+- Security scanning
+- DoS early-warning
+- DNSSEC checking
+- Defacement detection
+- Dashboard monitoring (Grafana / Streamlit)
+
+---
+
+# 🤝 **Kontribusi**
+
+Pull request sangat diterima.  
+Silakan buat branch baru untuk fitur atau perbaikan bug.
+
+---
+
+# 📜 **Lisensi**
+MIT License
+
+---
+
+# 👨‍💻 **Dikembangkan oleh**
+ekolancer / BNPB Engineering Team

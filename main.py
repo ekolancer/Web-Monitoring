@@ -25,7 +25,7 @@ logger = setup_logger()
 
 # init google sheet client (used only for reading list)
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets","https://www.googleapis.com/auth/drive"]
-creds = Credentials.from_service_account_file("credentials.json", scopes=SCOPES)
+creds = Credentials.from_service_account_file("env/credentials.json", scopes=SCOPES)
 gclient = gspread.authorize(creds)
 spreadsheet = gclient.open(SPREADSHEET_NAME)
 list_tab = spreadsheet.worksheet(LIST_TAB_NAME)
