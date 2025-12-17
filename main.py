@@ -19,7 +19,14 @@ import gspread
 from googleapiclient.discovery import build
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
+from core.security_checker import run_security_check
+from outputs.sheets_security import write_security_results
 from outputs.sheets import init_sheets
+from outputs.sheets_security_summary import (
+    build_security_summary,
+    write_security_summary,
+    apply_security_summary_formatting
+)
 
 spreadsheet, sheets_api = init_sheets()
 
@@ -32,7 +39,29 @@ creds = Credentials.from_service_account_file("env/credentials.json", scopes=SCO
 gclient = gspread.authorize(creds)
 spreadsheet = gclient.open(SPREADSHEET_NAME)
 list_tab = spreadsheet.worksheet(LIST_TAB_NAME)
+try:
+    security_summary_sheet = spreadsheet.worksheet("Security Summary")
+except gspread.WorksheetNotFound:
+    security_summary_sheet = spreadsheet.add_worksheet(
+        title="Security Summary",
+        rows=1000,
+        cols=10
+    )
+    
+# Sheet DETAIL Security Check
+try:
+    security_sheet = spreadsheet.worksheet("Security Check")
+except gspread.WorksheetNotFound:
+    security_sheet = spreadsheet.add_worksheet(
+        title="Security Check",
+        rows=2000,
+        cols=10
+    )
 
+
+
+
+# security sheet
 def load_urls_from_sheet():
     try:
         return list_tab.col_values(2)[1:]
@@ -40,6 +69,40 @@ def load_urls_from_sheet():
         logger.error(f"Failed load URLs: {e}")
         return []
 
+# load VM list from sheet    
+def build_vm_list_from_urls():
+    """
+    Konversi URL list menjadi format VM list untuk Security Checker
+    Aman terhadap cell kosong / angka
+    """
+    urls = load_urls_from_sheet()
+    vm_list = []
+
+    for idx, url in enumerate(urls, start=1):
+
+        # skip empty / None
+        if not url:
+            continue
+
+        # pastikan string
+        url_str = str(url).strip()
+
+        if not url_str:
+            continue
+
+        domain = (
+            url_str
+            .replace("https://", "")
+            .replace("http://", "")
+            .strip("/")
+        )
+
+        vm_list.append({
+            "vm_name": f"VM-{idx}",
+            "domain": domain
+        })
+
+    return vm_list
 
 #---------------- RUN ONCE SCAN ----------------
 def run_once():
@@ -198,8 +261,7 @@ def run_live():
         console.print("\n\n[red]⛔ Live monitoring stopped by user.[/]")
         time.sleep(1)
 
-
-
+#---------------- AUTOMATIC SCHEDULER ----------------
 def auto_scheduler():
     schedule.every().day.at("08:00").do(run_once)
     schedule.every().day.at("21:03").do(run_once)
@@ -229,6 +291,7 @@ def check_spreadsheet():
         console.print(f"[bold red]==>  Testing Spreadsheet Failed - {e}[/]")
         return False
 
+#---------------- DIAGNOSTICS ----------------
 def run_diagnostics():
     banner()
     console.print("[bold yellow]CONFIG CHECK & DIAGNOSTICS[/]")
@@ -245,6 +308,21 @@ def run_diagnostics():
 
     input("\nPress ENTER to return...")
     
+# utility to get sheet ID by title
+def get_sheet_id_by_title(sheets_api, spreadsheet_id: str, title: str) -> int | None:
+    """
+    Ambil sheetId berdasarkan nama sheet (aman & resmi)
+    """
+    meta = sheets_api.spreadsheets().get(
+        spreadsheetId=spreadsheet_id
+    ).execute()
+
+    for sheet in meta.get("sheets", []):
+        props = sheet.get("properties", {})
+        if props.get("title") == title:
+            return props.get("sheetId")
+
+    return None
 
 # utility to clear screen
 def clear():
@@ -252,15 +330,16 @@ def clear():
     console.clear()    
     
 
-#---------------- MENU ----------------
+# ---------------- MENU ----------------
 def menu():
     while True:
         banner()
         console.print("[cyan][1][/cyan] Run Scan Once & Export Logs")
         console.print("[cyan][2][/cyan] Live Monitoring (Loop)")
-        console.print("[cyan][3][/cyan] Telegram Notification Test")
-        console.print("[cyan][4][/cyan] Run Diagnostics (Spreadsheet + Telegram Test)")
-        console.print("[cyan][5][/cyan] Run Automatic Scheduler (Daily)")
+        console.print("[cyan][3][/cyan] Security Check Test")
+        console.print("[cyan][4][/cyan] Telegram Notification Test")
+        console.print("[cyan][5][/cyan] Run Diagnostics (Spreadsheet + Telegram Test)")
+        console.print("[cyan][6][/cyan] Run Automatic Scheduler (Daily)")
         console.print("[red][0][/red] Exit\n")
 
         print("┌── Input Option")
@@ -278,18 +357,55 @@ def menu():
                 time.sleep(1.5)
 
         elif choice == "3":
+            console.print("[cyan]🔐 Running Security Check...[/]")
+
+            vm_list = build_vm_list_from_urls()
+            if not vm_list:
+                console.print("[red]Tidak ada VM / URL untuk Security Check[/]")
+                input("ENTER to return...")
+            else:
+                # 1️⃣ Jalankan security scan
+                results = run_security_check(vm_list)
+
+                # 2️⃣ Tulis DETAIL
+                write_security_results(security_sheet, results)
+
+                # 3️⃣ Bangun & tulis SUMMARY
+                summary_rows = build_security_summary(results)
+                write_security_summary(security_summary_sheet, summary_rows)
+
+                # 4️⃣ APPLY FORMATTING
+                sheet_id = get_sheet_id_by_title(
+                            sheets_api,
+                            spreadsheet.id,
+                            "Security Summary"
+                    )
+
+                if sheet_id is not None:
+                    apply_security_summary_formatting(
+                        sheets_api,
+                        spreadsheet.id,
+                        sheet_id,
+                    )
+
+            console.print("[green]✔ Security Check + Summary completed[/]")
+            input("\nENTER to return...")
+
+        elif choice == "4":
             check_telegram()
             input("\nPress ENTER to return...")
 
-        elif choice == "4":
-            run_diagnostics()
-            
         elif choice == "5":
+            run_diagnostics()
+
+        elif choice == "6":
             auto_scheduler()
 
         elif choice == "0":
-            clear()      # <<< clear screen
-            console.print("[green]Goodbye, Salam Tangguh, Tangguh, Tangguh !!![/]")
+            clear()
+            console.print(
+                "[green]Goodbye, Salam Tangguh, Tangguh, Tangguh !!![/]"
+            )
             time.sleep(1)
             break
 
