@@ -105,6 +105,19 @@ def build_vm_list_from_urls():
 
     return vm_list
 
+#---------------- Animasi Loading ----------------
+def hacking_loading(message="Initializing engine", duration=5.0):
+    frames = ["[=     ]", "[==         ]", "[===        ]", "[====       ]", "[=====      ]", "[======     ]", "[=======    ]", "[========   ]", "[=========  ]",
+              "[========== ]", "[===========]", "[ ==========]", "[  =========]", "[   ========]", "[    =======]", "[     ======]", "[      =====]", "[       ====]", "[        ===]", "[         ==]", "[          =]"]
+    start = time.time()
+    idx = 0
+    while time.time() - start < duration:
+        frame = frames[idx % len(frames)]
+        print(f"\r{message} {frame}", end="", flush=True)
+        time.sleep(0.12)
+        idx += 1
+    print("\r" + " " * (len(message) + 10), end="\r")
+
 
 #---------------- RUN ONCE SCAN ----------------
 def run_once():
@@ -160,20 +173,6 @@ def run_once():
     console.print("\n[cyan]Telegram Notifiaction Sent Successfully.[/]")
 
     input("\nENTER to return...")
-
-
-#---------------- Animasi Loading ----------------
-def hacking_loading(message="Initializing engine", duration=5.0):
-    frames = ["[=     ]", "[==         ]", "[===        ]", "[====       ]", "[=====      ]", "[======     ]", "[=======    ]", "[========   ]", "[=========  ]",
-              "[========== ]", "[===========]", "[ ==========]", "[  =========]", "[   ========]", "[    =======]", "[     ======]", "[      =====]", "[       ====]", "[        ===]", "[         ==]", "[          =]"]
-    start = time.time()
-    idx = 0
-    while time.time() - start < duration:
-        frame = frames[idx % len(frames)]
-        print(f"\r{message} {frame}", end="", flush=True)
-        time.sleep(0.12)
-        idx += 1
-    print("\r" + " " * (len(message) + 10), end="\r")
 
 #---------------- Telegram Summary Builder ----------------
 def build_telegram_summary(results):
@@ -263,6 +262,92 @@ def run_live():
         console.print("\n\n[red]⛔ Live monitoring stopped by user.[/]")
         time.sleep(1)
 
+#---------------- RUN SECURITY CHECK ----------------
+def run_security():
+    banner()
+    console.print("[cyan]🔐 Running Security Check...[/]")
+
+    vm_list = build_vm_list_from_urls()
+    if not vm_list:
+        console.print("[red]Tidak ada VM / URL untuk Security Check[/]")
+        input("ENTER to return...")
+        return
+
+    hacking_loading("Preparing security scanner...", duration=4.0)
+
+    total = len(vm_list)
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[cyan]{task.description}"),
+        BarColumn(),
+        TextColumn("{task.completed}/{task.total}"),
+        TimeElapsedColumn(),
+        console=console,
+        expand=True
+    ) as progress:
+
+        task = progress.add_task("Security scanning...", total=total)
+
+        def on_update(_):
+            progress.update(task, advance=1)
+
+        results = run_security_check(
+            vm_list,
+            progress_callback=on_update
+        )
+
+    console.print("\n[bold green]✔ Security Scan completed![/]\n")
+
+    # PIPELINE LANJUTAN (TIDAK DIUBAH)
+    write_security_results(security_sheet, results)
+
+    detail_sheet_id = get_sheet_id_by_title(
+        sheets_api,
+        spreadsheet.id,
+        "Security Check"
+    )
+
+    if detail_sheet_id is None:
+        console.print("[red]Sheet 'Security Check' tidak ditemukan[/]")
+        input("ENTER to return...")
+        return
+
+    summary_rows = build_security_summary(
+        results,
+        spreadsheet.id,
+        detail_sheet_id
+    )
+
+    summary_sheet_id = get_sheet_id_by_title(
+        sheets_api,
+        spreadsheet.id,
+        "Security Summary"
+    )
+
+    if summary_sheet_id is not None:
+        prepare_security_summary_sheet(
+            sheets_api,
+            spreadsheet.id,
+            summary_sheet_id
+        )
+
+    write_security_summary(
+        security_summary_sheet,
+        summary_rows
+    )
+
+    apply_security_summary_formatting(
+        sheets_api,
+        spreadsheet.id,
+        summary_sheet_id
+    )
+
+    send_security_alert(summary_rows)
+
+    console.print("[green]✔ Security Check + Summary completed[/]")
+    input("\nENTER to return...")
+
 #---------------- AUTOMATIC SCHEDULER ----------------
 def auto_scheduler():
     schedule.every().day.at("08:00").do(run_once)
@@ -275,7 +360,7 @@ def auto_scheduler():
     except KeyboardInterrupt:
         console.print("\n\n[red]⛔ Scheduler dihentikan oleh user.[/]\n")
 
-# quick tests from original script
+#---------------- DIAGNOSTICS ----------------
 def check_telegram():
     console.print("\n[bold cyan]==>  Testing Telegram Notification...[/]")
     return send_telegram_text("✺◟(＾∇＾)◞✺ — Telegram notification working.")
@@ -359,74 +444,8 @@ def menu():
                 time.sleep(1.5)
 
         elif choice == "3":
-            console.print("[cyan]🔐 Running Security Check...[/]")
-
-            vm_list = build_vm_list_from_urls()
-            if not vm_list:
-                console.print("[red]Tidak ada VM / URL untuk Security Check[/]")
-                input("ENTER to return...")
-                return
-
-            # 1️⃣ JALANKAN SECURITY CHECK
-            results = run_security_check(vm_list)
-
-            # 2️⃣ TULIS DETAIL (Security Check)
-            write_security_results(security_sheet, results)
-
-            # 3️⃣ AMBIL SHEET ID DETAIL (UNTUK LINK)
-            detail_sheet_id = get_sheet_id_by_title(
-                sheets_api,
-                spreadsheet.id,
-                "Security Check"
-            )
-
-            if detail_sheet_id is None:
-                console.print("[red]Sheet 'Security Check' tidak ditemukan[/]")
-                input("ENTER to return...")
-                return
-
-            # 4️⃣ BANGUN SUMMARY (DENGAN LINK KE DETAIL)
-            summary_rows = build_security_summary(
-                results,
-                spreadsheet.id,
-                detail_sheet_id
-            )
-
-            # 5️⃣ AMBIL SHEET ID SUMMARY
-            summary_sheet_id = get_sheet_id_by_title(
-                sheets_api,
-                spreadsheet.id,
-                "Security Summary"
-            )
-
-            if summary_sheet_id is not None:
-                # 6️⃣ RESET + HEADER SUMMARY
-                prepare_security_summary_sheet(
-                    sheets_api,
-                    spreadsheet.id,
-                    summary_sheet_id
-                )
-
-                # 7️⃣ TULIS SUMMARY
-                write_security_summary(
-                    security_summary_sheet,
-                    summary_rows
-                )
-
-                # 8️⃣ FORMAT WARNA RISK
-                apply_security_summary_formatting(
-                    sheets_api,
-                    spreadsheet.id,
-                    summary_sheet_id
-                )
-
-            # 9️⃣ TELEGRAM ALERT (HIGH RISK SAJA)
-            send_security_alert(summary_rows)
-
-            console.print("[green]✔ Security Check + Summary completed[/]")
-            input("\nENTER to return...")
-
-
+            run_security()            
+            
         elif choice == "4":
             check_telegram()
             input("\nPress ENTER to return...")

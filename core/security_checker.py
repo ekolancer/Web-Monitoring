@@ -4,7 +4,9 @@ from utils.http_methods import check_http_methods
 from utils.sensitive_files import check_sensitive_files
 from utils.port_check import check_ports
 
-def run_security_check(vm_list: list):
+def run_security_check(vm_list, progress_callback=None):
+    ...
+
     """
     Menjalankan seluruh security check untuk setiap VM
     """
