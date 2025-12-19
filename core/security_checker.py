@@ -12,7 +12,7 @@ def run_security_check(vm_list: list):
 
     for vm in vm_list:
         domain = vm["domain"]
-        vm_name = vm["vm_name"]
+        #vm_name = vm["vm_name"]
 
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -26,7 +26,7 @@ def run_security_check(vm_list: list):
         for check in checks:
             results.append({
                 "timestamp": timestamp,
-                "vm_name": vm_name,
+                #"vm_name": vm_name,
                 "domain": domain,
                 "check_type": check["check_type"],
                 "status": check["status"],

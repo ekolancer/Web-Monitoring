@@ -7,33 +7,33 @@ def build_security_summary(results: list) -> list:
         "methods": "OK",
         "files": "OK",
         "ports": "OK",
-        "notes": []   # ⬅️ HARUS LIST
+        "notes": []
     })
 
     for r in results:
-        vm = r["vm_name"]
+        domain = r.get("domain")   # ⬅️ PAKAI DOMAIN
+        if not domain:
+            continue
+
         check = r["check_type"]
         status = r["status"]
 
         if check == "Security Headers":
-            summary[vm]["headers"] = status
+            summary[domain]["headers"] = status
         elif check == "HTTP Methods":
-            summary[vm]["methods"] = status
+            summary[domain]["methods"] = status
         elif check == "Sensitive Files":
-            summary[vm]["files"] = status
+            summary[domain]["files"] = status
         elif check == "Open Ports":
-            summary[vm]["ports"] = status
+            summary[domain]["ports"] = status
 
         if status in ("WARN", "FAIL", "CRITICAL"):
-            notes = summary[vm]["notes"]
-            if isinstance(notes, list):
-                notes.append(f"{check}: {status}")
-
+            summary[domain]["notes"].append(f"{check}: {status}")
 
     rows = []
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    for vm, data in summary.items():
+    for domain, data in summary.items():
         severities = [
             data["headers"],
             data["methods"],
@@ -50,7 +50,7 @@ def build_security_summary(results: list) -> list:
 
         rows.append([
             timestamp,
-            vm,
+            domain,   # ⬅️ DOMAIN TAMPIL DI SUMMARY
             data["headers"],
             data["methods"],
             data["files"],
@@ -154,3 +154,93 @@ def apply_security_summary_formatting(sheets_api, spreadsheet_id, sheet_id):
         spreadsheetId=spreadsheet_id,
         body={"requests": requests}
     ).execute()
+
+def prepare_security_summary_sheet(
+    sheets_api,
+    spreadsheet_id: str,
+    sheet_id: int
+) -> None:
+    """
+    Bersihkan sheet, set header, freeze row, dan UX formatting dasar
+    (TIDAK mengatur lebar kolom)
+    """
+
+    requests = [
+        # CLEAR SHEET CONTENT
+        {
+            "updateCells": {
+                "range": {
+                    "sheetId": sheet_id
+                },
+                "fields": "userEnteredValue"
+            }
+        },
+
+        # SET HEADER
+        {
+            "updateCells": {
+                "range": {
+                    "sheetId": sheet_id,
+                    "startRowIndex": 0,
+                    "endRowIndex": 1
+                },
+                "rows": [{
+                    "values": [
+                        {"userEnteredValue": {"stringValue": "Timestamp"}},
+                        {"userEnteredValue": {"stringValue": "Domain"}},
+                        {"userEnteredValue": {"stringValue": "Security Headers"}},
+                        {"userEnteredValue": {"stringValue": "HTTP Methods"}},
+                        {"userEnteredValue": {"stringValue": "Sensitive Files"}},
+                        {"userEnteredValue": {"stringValue": "Open Ports"}},
+                        {"userEnteredValue": {"stringValue": "Risk Level"}},
+                        {"userEnteredValue": {"stringValue": "Notes"}},
+                    ]
+                }],
+                "fields": "userEnteredValue"
+            }
+        },
+
+        # FREEZE HEADER
+        {
+            "updateSheetProperties": {
+                "properties": {
+                    "sheetId": sheet_id,
+                    "gridProperties": {
+                        "frozenRowCount": 1
+                    }
+                },
+                "fields": "gridProperties.frozenRowCount"
+            }
+        },
+
+        # HEADER STYLE
+        {
+            "repeatCell": {
+                "range": {
+                    "sheetId": sheet_id,
+                    "startRowIndex": 0,
+                    "endRowIndex": 1
+                },
+                "cell": {
+                    "userEnteredFormat": {
+                        "backgroundColor": {
+                            "red": 0.9,
+                            "green": 0.9,
+                            "blue": 0.9
+                        },
+                        "horizontalAlignment": "CENTER",
+                        "textFormat": {
+                            "bold": True
+                        }
+                    }
+                },
+                "fields": "userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)"
+            }
+        }
+    ]
+
+    sheets_api.spreadsheets().batchUpdate(
+        spreadsheetId=spreadsheet_id,
+        body={"requests": requests}
+    ).execute()
+

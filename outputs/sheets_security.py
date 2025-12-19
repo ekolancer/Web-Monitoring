@@ -5,7 +5,7 @@ def write_security_results(sheet, results: list):
     rows = [
         [
             r["timestamp"],
-            r["vm_name"],
+            #r["vm_name"],
             r["domain"],
             r["check_type"],
             r["status"],

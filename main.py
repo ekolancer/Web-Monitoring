@@ -25,7 +25,8 @@ from outputs.sheets import init_sheets
 from outputs.sheets_security_summary import (
     build_security_summary,
     write_security_summary,
-    apply_security_summary_formatting
+    apply_security_summary_formatting,
+    prepare_security_summary_sheet
 )
 
 spreadsheet, sheets_api = init_sheets()
@@ -58,9 +59,6 @@ except gspread.WorksheetNotFound:
         cols=10
     )
 
-
-
-
 # security sheet
 def load_urls_from_sheet():
     try:
@@ -72,37 +70,39 @@ def load_urls_from_sheet():
 # load VM list from sheet    
 def build_vm_list_from_urls():
     """
-    Konversi URL list menjadi format VM list untuk Security Checker
-    Aman terhadap cell kosong / angka
+    Ambil DOMAIN langsung dari kolom B sheet 'List VM'
+    (tanpa tergantung nama header)
     """
-    urls = load_urls_from_sheet()
+    try:
+        rows = list_tab.get_all_values()
+    except Exception as e:
+        logger.error(f"Gagal membaca List VM: {e}")
+        return []
+
     vm_list = []
 
-    for idx, url in enumerate(urls, start=1):
-
-        # skip empty / None
-        if not url:
+    for idx, row in enumerate(rows[1:], start=1):  # skip header
+        if len(row) < 2:
             continue
 
-        # pastikan string
-        url_str = str(url).strip()
-
-        if not url_str:
+        domain = str(row[1]).strip()   # kolom B
+        if not domain:
             continue
 
         domain = (
-            url_str
+            domain
             .replace("https://", "")
             .replace("http://", "")
             .strip("/")
         )
 
         vm_list.append({
-            "vm_name": f"VM-{idx}",
-            "domain": domain
+            #"vm_name": f"VM-{idx}",     # internal saja
+            "domain": domain            # ⬅️ DOMAIN ASLI
         })
 
     return vm_list
+
 
 #---------------- RUN ONCE SCAN ----------------
 def run_once():
@@ -360,6 +360,7 @@ def menu():
             console.print("[cyan]🔐 Running Security Check...[/]")
 
             vm_list = build_vm_list_from_urls()
+            #print(vm_list[:3])
             if not vm_list:
                 console.print("[red]Tidak ada VM / URL untuk Security Check[/]")
                 input("ENTER to return...")
@@ -370,24 +371,37 @@ def menu():
                 # 2️⃣ Tulis DETAIL
                 write_security_results(security_sheet, results)
 
-                # 3️⃣ Bangun & tulis SUMMARY
+                # 3️⃣ Bangun SUMMARY
                 summary_rows = build_security_summary(results)
-                write_security_summary(security_summary_sheet, summary_rows)
 
-                # 4️⃣ APPLY FORMATTING
+                # 4️⃣ Ambil sheet_id
                 sheet_id = get_sheet_id_by_title(
-                            sheets_api,
-                            spreadsheet.id,
-                            "Security Summary"
-                    )
+                    sheets_api,
+                    spreadsheet.id,
+                    "Security Summary"
+                )
 
                 if sheet_id is not None:
+                    # 5️⃣ RESET + HEADER (WAJIB DI SINI)
+                    prepare_security_summary_sheet(
+                        sheets_api,
+                        spreadsheet.id,
+                        sheet_id
+                    )
+
+                    # 6️⃣ TULIS DATA (START ROW 2)
+                    write_security_summary(
+                        security_summary_sheet,
+                        summary_rows
+                    )
+
+                    # 7️⃣ CONDITIONAL FORMATTING (WARNA RISK)
                     apply_security_summary_formatting(
                         sheets_api,
                         spreadsheet.id,
-                        sheet_id,
+                        sheet_id
                     )
-
+                    
             console.print("[green]✔ Security Check + Summary completed[/]")
             input("\nENTER to return...")
 
