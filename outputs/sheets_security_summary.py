@@ -1,22 +1,46 @@
 from collections import defaultdict
 from datetime import datetime
+from typing import List
 
-def build_security_summary(results: list) -> list:
-    summary = defaultdict(lambda: {
-        "headers": "OK",
-        "methods": "OK",
-        "files": "OK",
-        "ports": "OK",
-        "notes": []
-    })
+from collections import defaultdict
+from datetime import datetime
+from typing import TypedDict, List, Dict
+
+
+class SecuritySummaryItem(TypedDict):
+    headers: str
+    methods: str
+    files: str
+    ports: str
+    notes: List[str]
+
+
+def build_security_summary(
+    results: List[Dict],
+    spreadsheet_id: str,
+    detail_sheet_id: int
+) -> List[List[str]]:
+    """
+    Build Security Summary rows (DOMAIN-based, with hyperlink)
+    """
+
+    summary: Dict[str, SecuritySummaryItem] = defaultdict(
+        lambda: {
+            "headers": "OK",
+            "methods": "OK",
+            "files": "OK",
+            "ports": "OK",
+            "notes": [],
+        }
+    )
 
     for r in results:
-        domain = r.get("domain")   # ⬅️ PAKAI DOMAIN
+        domain = r.get("domain")
         if not domain:
             continue
 
-        check = r["check_type"]
-        status = r["status"]
+        check = r.get("check_type")
+        status = r.get("status", "OK")
 
         if check == "Security Headers":
             summary[domain]["headers"] = status
@@ -30,8 +54,13 @@ def build_security_summary(results: list) -> list:
         if status in ("WARN", "FAIL", "CRITICAL"):
             summary[domain]["notes"].append(f"{check}: {status}")
 
-    rows = []
+    rows: List[List[str]] = []
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    detail_url = (
+        f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
+        f"/edit#gid={detail_sheet_id}"
+    )
 
     for domain, data in summary.items():
         severities = [
@@ -50,13 +79,13 @@ def build_security_summary(results: list) -> list:
 
         rows.append([
             timestamp,
-            domain,   # ⬅️ DOMAIN TAMPIL DI SUMMARY
+            f'=HYPERLINK("{detail_url}","{domain}")',
             data["headers"],
             data["methods"],
             data["files"],
             data["ports"],
             risk,
-            "; ".join(data["notes"]) if data["notes"] else "-"
+            "; ".join(data["notes"]) if data["notes"] else "-",
         ])
 
     return rows

@@ -28,6 +28,8 @@ from outputs.sheets_security_summary import (
     apply_security_summary_formatting,
     prepare_security_summary_sheet
 )
+from outputs.telegram import send_security_alert
+
 
 spreadsheet, sheets_api = init_sheets()
 
@@ -360,50 +362,70 @@ def menu():
             console.print("[cyan]🔐 Running Security Check...[/]")
 
             vm_list = build_vm_list_from_urls()
-            #print(vm_list[:3])
             if not vm_list:
                 console.print("[red]Tidak ada VM / URL untuk Security Check[/]")
                 input("ENTER to return...")
-            else:
-                # 1️⃣ Jalankan security scan
-                results = run_security_check(vm_list)
+                return
 
-                # 2️⃣ Tulis DETAIL
-                write_security_results(security_sheet, results)
+            # 1️⃣ JALANKAN SECURITY CHECK
+            results = run_security_check(vm_list)
 
-                # 3️⃣ Bangun SUMMARY
-                summary_rows = build_security_summary(results)
+            # 2️⃣ TULIS DETAIL (Security Check)
+            write_security_results(security_sheet, results)
 
-                # 4️⃣ Ambil sheet_id
-                sheet_id = get_sheet_id_by_title(
+            # 3️⃣ AMBIL SHEET ID DETAIL (UNTUK LINK)
+            detail_sheet_id = get_sheet_id_by_title(
+                sheets_api,
+                spreadsheet.id,
+                "Security Check"
+            )
+
+            if detail_sheet_id is None:
+                console.print("[red]Sheet 'Security Check' tidak ditemukan[/]")
+                input("ENTER to return...")
+                return
+
+            # 4️⃣ BANGUN SUMMARY (DENGAN LINK KE DETAIL)
+            summary_rows = build_security_summary(
+                results,
+                spreadsheet.id,
+                detail_sheet_id
+            )
+
+            # 5️⃣ AMBIL SHEET ID SUMMARY
+            summary_sheet_id = get_sheet_id_by_title(
+                sheets_api,
+                spreadsheet.id,
+                "Security Summary"
+            )
+
+            if summary_sheet_id is not None:
+                # 6️⃣ RESET + HEADER SUMMARY
+                prepare_security_summary_sheet(
                     sheets_api,
                     spreadsheet.id,
-                    "Security Summary"
+                    summary_sheet_id
                 )
 
-                if sheet_id is not None:
-                    # 5️⃣ RESET + HEADER (WAJIB DI SINI)
-                    prepare_security_summary_sheet(
-                        sheets_api,
-                        spreadsheet.id,
-                        sheet_id
-                    )
+                # 7️⃣ TULIS SUMMARY
+                write_security_summary(
+                    security_summary_sheet,
+                    summary_rows
+                )
 
-                    # 6️⃣ TULIS DATA (START ROW 2)
-                    write_security_summary(
-                        security_summary_sheet,
-                        summary_rows
-                    )
+                # 8️⃣ FORMAT WARNA RISK
+                apply_security_summary_formatting(
+                    sheets_api,
+                    spreadsheet.id,
+                    summary_sheet_id
+                )
 
-                    # 7️⃣ CONDITIONAL FORMATTING (WARNA RISK)
-                    apply_security_summary_formatting(
-                        sheets_api,
-                        spreadsheet.id,
-                        sheet_id
-                    )
-                    
+            # 9️⃣ TELEGRAM ALERT (HIGH RISK SAJA)
+            send_security_alert(summary_rows)
+
             console.print("[green]✔ Security Check + Summary completed[/]")
             input("\nENTER to return...")
+
 
         elif choice == "4":
             check_telegram()

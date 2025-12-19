@@ -43,3 +43,46 @@ def send_telegram_text(text: str, silent: bool = False):
             console.print(f"[red]❌ Telegram send FAILED:[/] {e}")
         logger.error(f"Telegram send failed: {e}")
         return False
+
+
+def send_security_alert(summary_rows: list):
+    """
+    Kirim Telegram alert hanya untuk HIGH risk
+    (AMAN: tanpa formula Sheets)
+    """
+    high_risk = []
+
+    for r in summary_rows:
+        if len(r) < 8:
+            continue
+        if r[6] == "HIGH":
+            high_risk.append(r)
+
+    if not high_risk:
+        return False
+
+    lines = [
+        "🚨 SECURITY ALERT — HIGH RISK DETECTED",
+        ""
+    ]
+
+    for r in high_risk:
+        domain_cell = r[1]
+
+        # ⬅️ STRIP FORMULA HYPERLINK → AMBIL DOMAIN SAJA
+        if isinstance(domain_cell, str) and domain_cell.startswith('=HYPERLINK'):
+            # ambil teks setelah koma terakhir
+            domain = domain_cell.split('","')[-1].rstrip('")')
+        else:
+            domain = str(domain_cell)
+
+        notes = r[7] if r[7] else "-"
+
+        lines.append(f"🌐 {domain}")
+        lines.append(f"⚠️ {notes}")
+        lines.append("")
+
+    message = "\n".join(lines)
+
+    # 🔐 Telegram SAFE payload
+    return send_telegram_text(message)
