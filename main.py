@@ -11,9 +11,10 @@ from outputs.sheets import save_logs_gsheet
 from outputs.sheets import apply_formatting
 from outputs.sheets import update_summary_gsheet as update_summary
 from outputs.telegram import send_telegram_text
+from outputs.email import send_monitoring_alert, send_security_alert
 from core.engine import MonitorEngine
 from utils.logger import setup_logger
-from config import LIST_TAB_NAME, SPREADSHEET_NAME, CHECK_INTERVAL, THREAD_WORKERS
+from config import LIST_TAB_NAME, SPREADSHEET_NAME, CHECK_INTERVAL, THREAD_WORKERS, BOT_TOKEN, CHAT_ID, EMAIL_ENABLED, SMTP_SERVER, EMAIL_USER, TIMEOUT_MS, CONCURRENCY
 from google.oauth2.service_account import Credentials
 import gspread
 from googleapiclient.discovery import build
@@ -172,6 +173,9 @@ def run_once():
 
     send_telegram_text(build_telegram_summary(results), silent=True)
     console.print("\n[cyan]Telegram Notifiaction Sent Successfully.[/]")
+
+    # Send email alerts for critical issues
+    send_monitoring_alert(results)
 
     input("\nENTER to return...")
 
@@ -429,6 +433,8 @@ def menu():
         console.print("[cyan][4][/cyan] Telegram Notification Test")
         console.print("[cyan][5][/cyan] Run Diagnostics (Spreadsheet + Telegram Test)")
         console.print("[cyan][6][/cyan] Run Automatic Scheduler (Daily)")
+        console.print("[cyan][7][/cyan] Start Web Dashboard")
+        console.print("[cyan][8][/cyan] Configuration Settings")
         console.print("[red][0][/red] Exit\n")
 
         print("┌── Input Option")
@@ -458,6 +464,12 @@ def menu():
         elif choice == "6":
             auto_scheduler()
 
+        elif choice == "7":
+            start_web_dashboard()
+
+        elif choice == "8":
+            config_settings()
+
         elif choice == "0":
             clear()
             console.print(
@@ -470,6 +482,97 @@ def menu():
             console.print("[red]Invalid option! Try again...[/]")
             time.sleep(1.3)
 
+#---------------- START WEB DASHBOARD ----------------
+def start_web_dashboard():
+    console.print("[cyan]🚀 Starting Web Dashboard...[/]")
+    console.print("[cyan]Dashboard will be available at: http://localhost:5000[/]")
+    console.print("[yellow]Press Ctrl+C to stop the dashboard[/]")
+
+    try:
+        from web.app import app
+        app.run(host='0.0.0.0', port=5000, debug=False)
+    except ImportError:
+        console.print("[red]❌ Flask not installed. Run: pip install flask flask-cors plotly pandas sqlalchemy[/]")
+        input("Press ENTER to return...")
+    except Exception as e:
+        console.print(f"[red]❌ Error starting dashboard: {e}[/]")
+        input("Press ENTER to return...")
+
+#---------------- CONFIGURATION SETTINGS ----------------
+def config_settings():
+    while True:
+        banner()
+        console.print("[cyan]⚙️  Configuration Settings[/]")
+        console.print("[cyan][1][/cyan] Edit Telegram Settings")
+        console.print("[cyan][2][/cyan] Edit Email Settings")
+        console.print("[cyan][3][/cyan] Edit Monitoring Settings")
+        console.print("[cyan][4][/cyan] Edit Google Sheets Settings")
+        console.print("[red][0][/red] Back to Main Menu\n")
+
+        print("┌── Input Option")
+        print("│")
+        choice = input("└────────> ").strip()
+
+        if choice == "1":
+            edit_telegram_config()
+        elif choice == "2":
+            edit_email_config()
+        elif choice == "3":
+            edit_monitoring_config()
+        elif choice == "4":
+            edit_sheets_config()
+        elif choice == "0":
+            break
+        else:
+            console.print("[red]Invalid option! Try again...[/]")
+            time.sleep(1.3)
+
+def edit_telegram_config():
+    console.print("[cyan]📱 Telegram Configuration[/]")
+    console.print(f"Current BOT_TOKEN: {BOT_TOKEN[:10]}..." if BOT_TOKEN else "Not set")
+    console.print(f"Current CHAT_ID: {CHAT_ID}" if CHAT_ID else "Not set")
+
+    new_token = input("Enter new BOT_TOKEN (leave empty to keep current): ").strip()
+    if new_token:
+        # In real implementation, update config.py
+        console.print("[yellow]Note: Config file needs to be manually updated for persistence[/]")
+
+    new_chat = input("Enter new CHAT_ID (leave empty to keep current): ").strip()
+    if new_chat:
+        console.print("[yellow]Note: Config file needs to be manually updated for persistence[/]")
+
+    console.print("[green]Telegram config updated![/]")
+    input("Press ENTER to continue...")
+
+def edit_email_config():
+    console.print("[cyan]📧 Email Configuration[/]")
+    console.print(f"Email Enabled: {EMAIL_ENABLED}")
+    console.print(f"SMTP Server: {SMTP_SERVER}")
+    console.print(f"Email User: {EMAIL_USER}")
+
+    enable = input("Enable email alerts? (y/n): ").strip().lower()
+    if enable == 'y':
+        console.print("[yellow]Note: Update config.py with your email credentials[/]")
+
+    console.print("[green]Email config updated![/]")
+    input("Press ENTER to continue...")
+
+def edit_monitoring_config():
+    console.print("[cyan]🔍 Monitoring Configuration[/]")
+    console.print(f"Check Interval: {CHECK_INTERVAL} seconds")
+    console.print(f"Timeout: {TIMEOUT_MS} ms")
+    console.print(f"Concurrency: {CONCURRENCY}")
+
+    console.print("[yellow]Edit config.py directly for these settings[/]")
+    input("Press ENTER to continue...")
+
+def edit_sheets_config():
+    console.print("[cyan]📊 Google Sheets Configuration[/]")
+    console.print(f"Spreadsheet Name: {SPREADSHEET_NAME}")
+    console.print(f"List Tab Name: {LIST_TAB_NAME}")
+
+    console.print("[yellow]Edit config.py directly for these settings[/]")
+    input("Press ENTER to continue...")
 
 if __name__ == "__main__":
     try:

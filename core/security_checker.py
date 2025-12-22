@@ -4,6 +4,7 @@ from utils.security_headers import check_security_headers_async
 from utils.http_methods import check_http_methods_async
 from utils.sensitive_files import check_sensitive_files_async
 from utils.port_check import check_ports_async
+from utils.vulnerability_scanner import check_vulnerabilities, check_ssl_vulnerabilities
 
 async def run_security_check_async(vm_list, progress_callback=None):
     """
@@ -40,7 +41,9 @@ async def run_checks_for_domain(domain, timestamp):
         check_security_headers_async(domain),
         check_http_methods_async(domain),
         check_sensitive_files_async(domain),
-        check_ports_async(domain)
+        check_ports_async(domain),
+        check_vulnerabilities(domain),
+        check_ssl_vulnerabilities(domain)
     )
 
     results = []

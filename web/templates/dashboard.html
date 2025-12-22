@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WEB-MON Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 20px;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            border-left: 4px solid #007bff;
+        }
+        .stat-card.healthy { border-left-color: #28a745; }
+        .stat-card.warning { border-left-color: #ffc107; }
+        .stat-card.danger { border-left-color: #dc3545; }
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .chart-container {
+            padding: 20px;
+        }
+        .status-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .status-table th, .status-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .status-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: 500;
+        }
+        .status-healthy { background: #d4edda; color: #155724; }
+        .status-error { background: #f8d7da; color: #721c24; }
+        .status-warning { background: #fff3cd; color: #856404; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛰️ WEB-MON Dashboard</h1>
+            <p>Real-time Website Monitoring for BNPB</p>
+        </div>
+
+        <div class="stats" id="stats">
+            <div class="stat-card healthy">
+                <div class="stat-number" id="total-sites">-</div>
+                <div>Total Sites</div>
+            </div>
+            <div class="stat-card healthy">
+                <div class="stat-number" id="healthy-sites">-</div>
+                <div>Healthy Sites</div>
+            </div>
+            <div class="stat-card warning">
+                <div class="stat-number" id="issues">-</div>
+                <div>Issues Found</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="uptime-percent">-</div>
+                <div>Avg Uptime %</div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <h3>Uptime History (Last 30 Scans)</h3>
+            <div id="uptime-chart"></div>
+        </div>
+
+        <div class="chart-container">
+            <h3>Recent Site Status</h3>
+            <table class="status-table" id="status-table">
+                <thead>
+                    <tr>
+                        <th>URL</th>
+                        <th>Status</th>
+                        <th>HTTP</th>
+                        <th>Latency</th>
+                        <th>SSL Status</th>
+                    </tr>
+                </thead>
+                <tbody id="status-tbody">
+                    <tr><td colspan="5">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        async function loadDashboard() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+
+                if (data.error) {
+                    console.error('Error:', data.error);
+                    return;
+                }
+
+                // Update stats
+                document.getElementById('total-sites').textContent = data.total_sites;
+                document.getElementById('healthy-sites').textContent = data.healthy;
+                document.getElementById('issues').textContent = data.issues;
+
+                // Update table
+                const tbody = document.getElementById('status-tbody');
+                tbody.innerHTML = '';
+
+                data.data.forEach(site => {
+                    const row = document.createElement('tr');
+                    const statusClass = site.Status === 'HEALTHY' ? 'status-healthy' :
+                                      site.Status === 'ERROR' ? 'status-error' : 'status-warning';
+
+                    row.innerHTML = `
+                        <td>${site.URL || site.url}</td>
+                        <td><span class="status-badge ${statusClass}">${site.Status}</span></td>
+                        <td>${site.HTTP || '-'}</td>
+                        <td>${site.Latency || '-'}ms</td>
+                        <td>${site['SSL Status'] || '-'}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+            } catch (error) {
+                console.error('Failed to load dashboard:', error);
+            }
+        }
+
+        async function loadHistory() {
+            try {
+                const response = await fetch('/api/history');
+                const history = await response.json();
+
+                if (history.error) {
+                    console.error('Error:', history.error);
+                    return;
+                }
+
+                const timestamps = history.map(h => h.timestamp);
+                const uptimePercent = history.map(h => h.uptime_percent);
+
+                const trace = {
+                    x: timestamps,
+                    y: uptimePercent,
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    name: 'Uptime %',
+                    line: {color: '#28a745'}
+                };
+
+                const layout = {
+                    title: 'Uptime Percentage Over Time',
+                    xaxis: {title: 'Time'},
+                    yaxis: {title: 'Uptime %', range: [0, 100]},
+                    margin: {l: 50, r: 50, t: 50, b: 100}
+                };
+
+                Plotly.newPlot('uptime-chart', [trace], layout);
+
+                // Calculate avg uptime
+                const avgUptime = uptimePercent.reduce((a, b) => a + b, 0) / uptimePercent.length;
+                document.getElementById('uptime-percent').textContent = avgUptime.toFixed(1) + '%';
+
+            } catch (error) {
+                console.error('Failed to load history:', error);
+            }
+        }
+
+        // Load data on page load
+        loadDashboard();
+        loadHistory();
+
+        // Refresh every 30 seconds
+        setInterval(() => {
+            loadDashboard();
+            loadHistory();
+        }, 30000);
+    </script>
+</body>
+</html>

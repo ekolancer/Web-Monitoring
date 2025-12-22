@@ -17,6 +17,15 @@ THREAD_WORKERS = 10
 BOT_TOKEN = "8497837842:AAE_NIDqV6ZoQQEQoghQpxYqjF0GQpqJAN0"   # isi jika mau
 CHAT_ID = "6618166674"     # isi jika mau
 
+# Email alerts (optional)
+EMAIL_ENABLED = False
+SMTP_SERVER = "smtp.gmail.com"
+SMTP_PORT = 587
+EMAIL_USER = "your-email@gmail.com"
+EMAIL_PASS = "your-app-password"
+EMAIL_TO = ["admin@bnpp.go.id"]
+EMAIL_FROM = "webmon@bnpp.go.id"
+
 # Local paths
 LOG_DIR = "logs"
 OUTPUT_DIR = "results"
