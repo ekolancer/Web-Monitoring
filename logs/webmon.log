@@ -1,3 +1,2 @@
-2025-12-19 15:13:34,138 | WARNING | Telegram API returned HTTP 400
-2025-12-19 15:38:01,765 | INFO | Telegram message sent successfully.
-2025-12-19 16:23:31,317 | INFO | Telegram message sent successfully.
+2025-12-22 13:43:37,362 | INFO | Local log saved: results/scan_20251222_1343.json
+2025-12-22 13:43:38,392 | INFO | Telegram message sent successfully.
