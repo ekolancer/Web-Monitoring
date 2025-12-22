@@ -5,3 +5,10 @@ env/
 credentials.json
 .env
 *.key
+
+#Logs
+logs/
+
+#Result
+results/
+logs/webmon.log
