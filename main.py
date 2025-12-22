@@ -19,7 +19,7 @@ import gspread
 from googleapiclient.discovery import build
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
-from core.security_checker import run_security_check
+from core.security_checker import run_security_check_async as run_security_check
 from outputs.sheets_security import write_security_results
 from outputs.sheets import init_sheets
 from outputs.sheets_security_summary import (
@@ -107,7 +107,7 @@ def build_vm_list_from_urls():
 
 #---------------- Animasi Loading ----------------
 def hacking_loading(message="Initializing engine", duration=5.0):
-    frames = ["[=     ]", "[==         ]", "[===        ]", "[====       ]", "[=====      ]", "[======     ]", "[=======    ]", "[========   ]", "[=========  ]",
+    frames = ["[=          ]", "[==         ]", "[===        ]", "[====       ]", "[=====      ]", "[======     ]", "[=======    ]", "[========   ]", "[=========  ]",
               "[========== ]", "[===========]", "[ ==========]", "[  =========]", "[   ========]", "[    =======]", "[     ======]", "[      =====]", "[       ====]", "[        ===]", "[         ==]", "[          =]"]
     start = time.time()
     idx = 0
@@ -125,6 +125,7 @@ def run_once():
     console.print("[bold green]SCAN ON PROGRESS....[/]")
 
     urls = load_urls_from_sheet()
+    console.print(f"[cyan]Found {len(urls)} domains to check[/]")
     if not urls:
         console.print("[red]Tidak ada URL di 'List VM' kolom B.[/]")
         input("ENTER to return...")
@@ -268,6 +269,7 @@ def run_security():
     console.print("[cyan]🔐 Running Security Check...[/]")
 
     vm_list = build_vm_list_from_urls()
+    console.print(f"[cyan]Found {len(vm_list)} domains to check[/]")
     if not vm_list:
         console.print("[red]Tidak ada VM / URL untuk Security Check[/]")
         input("ENTER to return...")
@@ -292,10 +294,10 @@ def run_security():
         def on_update(_):
             progress.update(task, advance=1)
 
-        results = run_security_check(
+        results = asyncio.run(run_security_check(
             vm_list,
             progress_callback=on_update
-        )
+        ))
 
     console.print("\n[bold green]✔ Security Scan completed![/]\n")
 
