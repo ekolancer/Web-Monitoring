@@ -82,10 +82,10 @@ def init_google_sheets():
             )
 
         try:
-            security_sheet = spreadsheet.worksheet("Security Check")
+            security_sheet = spreadsheet.worksheet("Security Logs")
         except gspread.WorksheetNotFound:
             security_sheet = spreadsheet.add_worksheet(
-                title="Security Check",
+                title="Security Logs",
                 rows=2000,
                 cols=10
             )
@@ -158,7 +158,7 @@ def hacking_loading(message="Initializing engine", duration=5.0):
 #---------------- RUN ONCE SCAN ----------------
 def run_once():
     banner()
-    console.print("[bold green]SCAN ON PROGRESS....[/]")
+    console.print("[cyan]🖥️  Running Monitoring Check....[/]")
 
     urls = load_urls_from_sheet()
     console.print(f"[cyan]Found {len(urls)} domains to check[/]")
@@ -196,7 +196,7 @@ def run_once():
 
     console.print("\n[bold green]✔ Scan completed![/]\n")
 
-    console.print(make_table(results))
+    #console.print(make_table(results))
 
     init_google_sheets()  # Initialize before saving to sheets
     save_logs_gsheet(results)
@@ -204,11 +204,11 @@ def run_once():
     apply_formatting()
 
     local_file = write_local_log(results)
-    console.print(f"\n[cyan]Local log saved to:[/] [bold]{local_file}[/]")
-    console.print("\n[cyan]Logs & Summary updated (Sheets + local file).[/]")
+    console.print(f"\n[green]✅ Local log saved to:[/] [bold]{local_file}[/]")
+    console.print("\n[green]✅ Logs & Summary updated (Sheets + local file).[/]")
 
     send_telegram_text(build_telegram_summary(results), silent=True)
-    console.print("\n[cyan]Telegram Notifiaction Sent Successfully.[/]")
+    console.print("\n[green]🚀 Telegram Notifiaction Sent Successfully.[/]")
 
     # Send email alerts for critical issues
     send_monitoring_alert(results)
@@ -317,7 +317,7 @@ def run_security():
 
     init_google_sheets()  # Initialize Google Sheets before using
 
-    hacking_loading("Preparing security scanner...", duration=4.0)
+    hacking_loading("Panasin mesin dulu yah...", duration=5.0)
 
     total = len(vm_list)
 
@@ -349,7 +349,7 @@ def run_security():
     detail_sheet_id = get_sheet_id_by_title(
         sheets_api,
         spreadsheet.id,
-        "Security Check"
+        "Security Logs"
     )
 
     if detail_sheet_id is None:
@@ -389,7 +389,7 @@ def run_security():
 
     send_security_alert(summary_rows)
 
-    console.print("[green]✔ Security Check + Summary completed[/]")
+    console.print("[green]✅ Security Check + Summary completed[/]")
     input("\nENTER to return...")
 
 #---------------- AUTOMATIC SCHEDULER ----------------
