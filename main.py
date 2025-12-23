@@ -11,7 +11,16 @@ from outputs.sheets import save_logs_gsheet
 from outputs.sheets import apply_formatting
 from outputs.sheets import update_summary_gsheet as update_summary
 from outputs.telegram import send_telegram_text
-from outputs.email import send_monitoring_alert, send_security_alert
+
+# Optional email alerts: import if available, otherwise provide no-op fallbacks
+try:
+    from outputs.email import send_monitoring_alert, send_security_alert
+except Exception:
+    def send_monitoring_alert(results):
+        return False
+
+    def send_security_alert(results):
+        return False
 from core.engine import MonitorEngine
 from utils.logger import setup_logger
 from config import LIST_TAB_NAME, SPREADSHEET_NAME, CHECK_INTERVAL, THREAD_WORKERS, BOT_TOKEN, CHAT_ID, EMAIL_ENABLED, SMTP_SERVER, EMAIL_USER, TIMEOUT_MS, CONCURRENCY
@@ -37,33 +46,58 @@ spreadsheet, sheets_api = init_sheets()
 console = Console()
 logger = setup_logger()
 
-# init google sheet client (used only for reading list)
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets","https://www.googleapis.com/auth/drive"]
-creds = Credentials.from_service_account_file("env/credentials.json", scopes=SCOPES)
-gclient = gspread.authorize(creds)
-spreadsheet = gclient.open(SPREADSHEET_NAME)
-list_tab = spreadsheet.worksheet(LIST_TAB_NAME)
-try:
-    security_summary_sheet = spreadsheet.worksheet("Security Summary")
-except gspread.WorksheetNotFound:
-    security_summary_sheet = spreadsheet.add_worksheet(
-        title="Security Summary",
-        rows=1000,
-        cols=10
-    )
-    
-# Sheet DETAIL Security Check
-try:
-    security_sheet = spreadsheet.worksheet("Security Check")
-except gspread.WorksheetNotFound:
-    security_sheet = spreadsheet.add_worksheet(
-        title="Security Check",
-        rows=2000,
-        cols=10
-    )
+# Global variables for lazy initialization
+spreadsheet = None
+sheets_api = None
+gclient = None
+list_tab = None
+security_summary_sheet = None
+security_sheet = None
+
+def init_google_sheets():
+    """Initialize Google Sheets connection lazily"""
+    global spreadsheet, sheets_api, gclient, list_tab, security_summary_sheet, security_sheet
+
+    if spreadsheet is not None:
+        return  # Already initialized
+
+    try:
+        # init google sheet client (used only for reading list)
+        SCOPES = ["https://www.googleapis.com/auth/spreadsheets","https://www.googleapis.com/auth/drive"]
+        creds = Credentials.from_service_account_file("env/credentials.json", scopes=SCOPES)
+        gclient = gspread.authorize(creds)
+        spreadsheet = gclient.open(SPREADSHEET_NAME)
+        list_tab = spreadsheet.worksheet(LIST_TAB_NAME)
+
+        # Initialize sheets API
+        sheets_api = build('sheets', 'v4', credentials=creds)
+
+        try:
+            security_summary_sheet = spreadsheet.worksheet("Security Summary")
+        except gspread.WorksheetNotFound:
+            security_summary_sheet = spreadsheet.add_worksheet(
+                title="Security Summary",
+                rows=1000,
+                cols=10
+            )
+
+        try:
+            security_sheet = spreadsheet.worksheet("Security Check")
+        except gspread.WorksheetNotFound:
+            security_sheet = spreadsheet.add_worksheet(
+                title="Security Check",
+                rows=2000,
+                cols=10
+            )
+
+    except Exception as e:
+        console.print(f"[red]❌ Failed to initialize Google Sheets: {e}[/]")
+        console.print("[yellow]Some features may not work without Google Sheets connection[/]")
+        logger.error(f"Google Sheets initialization failed: {e}")
 
 # security sheet
 def load_urls_from_sheet():
+    init_google_sheets()
     try:
         return list_tab.col_values(2)[1:]
     except Exception as e:
@@ -76,6 +110,7 @@ def build_vm_list_from_urls():
     Ambil DOMAIN langsung dari kolom B sheet 'List VM'
     (tanpa tergantung nama header)
     """
+    init_google_sheets()
     try:
         rows = list_tab.get_all_values()
     except Exception as e:
@@ -163,6 +198,7 @@ def run_once():
 
     console.print(make_table(results))
 
+    init_google_sheets()  # Initialize before saving to sheets
     save_logs_gsheet(results)
     update_summary(results)
     apply_formatting()
@@ -279,6 +315,8 @@ def run_security():
         input("ENTER to return...")
         return
 
+    init_google_sheets()  # Initialize Google Sheets before using
+
     hacking_loading("Preparing security scanner...", duration=4.0)
 
     total = len(vm_list)
@@ -372,6 +410,7 @@ def check_telegram():
     return send_telegram_text("✺◟(＾∇＾)◞✺ — Telegram notification working.")
 
 def check_spreadsheet():
+    init_google_sheets()
     try:
         urls = list_tab.col_values(2)
         if urls:
