@@ -10,3 +10,9 @@ requests
 rich
 schedule
 urllib3
+flask
+flask-cors
+plotly
+pandas
+sqlalchemy
+secure-smtplib

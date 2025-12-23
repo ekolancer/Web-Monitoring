@@ -1,0 +1,19 @@
+# Ignore entire env folder
+env/
+
+# Ignore secrets
+credentials.json
+.env
+*.key
+
+#Logs
+logs/
+
+#Result
+results/
+logs/webmon.log
+# Logs
+*.log
+*.log.*
+logs/
+outputs/

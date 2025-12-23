@@ -23,4 +23,4 @@ def banner():
                     Version 2.1 - by @chatgpt plus
 """
     console.print(ascii_art, style="bold green")
-    console.print("───────────────────────────────────────────────────────────────\n", style="cyan")
+    console.print("───────────────────────────────────────────────────────────────────────\n", style="cyan")
