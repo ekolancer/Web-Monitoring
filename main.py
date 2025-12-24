@@ -196,7 +196,7 @@ def run_once():
 
     console.print("\n[bold green]✔ Scan completed![/]\n")
 
-    #console.print(make_table(results))
+    console.print(make_table(results))
 
     init_google_sheets()  # Initialize before saving to sheets
     save_logs_gsheet(results)
@@ -407,7 +407,7 @@ def auto_scheduler():
 #---------------- DIAGNOSTICS ----------------
 def check_telegram():
     console.print("\n[bold cyan]==>  Testing Telegram Notification...[/]")
-    return send_telegram_text("✺◟(＾∇＾)◞✺ — Telegram notification working.")
+    return send_telegram_text("✺◟(＾∇＾)◞✺ — Telegram udeh berhasil.")
 
 def check_spreadsheet():
     init_google_sheets()
